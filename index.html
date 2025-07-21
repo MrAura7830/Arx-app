@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arx BargainFinder AI - Smart Price Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="w-full bg-white shadow-sm border-b">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="text-3xl font-extrabold text-blue-600">Arx</span>
+                <span class="text-lg text-gray-600 font-medium">BargainFinder AI</span>
+            </div>
+            <nav class="flex items-center space-x-8 text-base font-medium">
+                <a href="#" class="text-gray-700 hover:text-blue-600 transition-colors">Home</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600 transition-colors">Favorites</a>
+                <a href="#" class="text-gray-700 hover:text-blue-600 transition-colors">History</a>
+                <button id="authBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    Sign In
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex flex-col items-center justify-center min-h-[80vh] w-full px-4">
+        <!-- Hero Section -->
+        <div class="text-center mb-12 max-w-4xl mx-auto">
+            <h1 class="text-5xl font-bold text-gray-900 mb-6">
+                Find the Best Deals with 
+                <span class="text-blue-600">AI-Powered</span> Search
+            </h1>
+            <p class="text-xl text-gray-600 mb-8">
+                Compare prices across Amazon, eBay, and Walmart instantly. Save money with intelligent deal discovery.
+            </p>
+        </div>
+
+        <!-- Search Section -->
+        <div class="w-full max-w-2xl mx-auto mb-12">
+            <div class="relative">
+                <input 
+                    type="text" 
+                    id="searchInput"
+                    placeholder="Search for products... (e.g., iPhone 15, wireless headphones)"
+                    class="w-full px-6 py-4 text-lg border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:outline-none shadow-lg"
+                />
+                <button 
+                    id="searchBtn"
+                    class="absolute right-2 top-2 bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+                >
+                    Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Popular Searches -->
+        <div class="mb-12">
+            <p class="text-gray-600 mb-4 text-center">Popular searches:</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <button class="popular-search bg-white px-4 py-2 rounded-full border hover:border-blue-500 hover:text-blue-600 transition-colors">iPhone 15</button>
+                <button class="popular-search bg-white px-4 py-2 rounded-full border hover:border-blue-500 hover:text-blue-600 transition-colors">Wireless Headphones</button>
+                <button class="popular-search bg-white px-4 py-2 rounded-full border hover:border-blue-500 hover:text-blue-600 transition-colors">Laptop</button>
+                <button class="popular-search bg-white px-4 py-2 rounded-full border hover:border-blue-500 hover:text-blue-600 transition-colors">Smart Watch</button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden w-full max-w-6xl mx-auto">
+            <h2 class="text-2xl font-bold text-center mb-8">Searching for the best deals...</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl p-6 shadow-lg">
+                    <div class="skeleton h-4 w-3/4 mb-4 rounded"></div>
+                    <div class="skeleton h-8 w-1/2 mb-4 rounded"></div>
+                    <div class="skeleton h-4 w-full mb-2 rounded"></div>
+                    <div class="skeleton h-4 w-2/3 rounded"></div>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-lg">
+                    <div class="skeleton h-4 w-3/4 mb-4 rounded"></div>
+                    <div class="skeleton h-8 w-1/2 mb-4 rounded"></div>
+                    <div class="skeleton h-4 w-full mb-2 rounded"></div>
+                    <div class="skeleton h-4 w-2/3 rounded"></div>
+                </div>
+                <div class="bg-white rounded-xl p-6 shadow-lg">
+                    <div class="skeleton h-4 w-3/4 mb-4 rounded"></div>
+                    <div class="skeleton h-8 w-1/2 mb-4 rounded"></div>
+                    <div class="skeleton h-4 w-full mb-2 rounded"></div>
+                    <div class="skeleton h-4 w-2/3 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden w-full max-w-6xl mx-auto">
+            <h2 id="resultsTitle" class="text-2xl font-bold text-center mb-8"></h2>
+            <div id="resultsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div id="featuresSection" class="w-full max-w-6xl mx-auto mt-20">
+            <h2 class="text-3xl font-bold text-center mb-12">Why Choose Arx BargainFinder AI?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">🤖</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">AI-Powered Search</h3>
+                    <p class="text-gray-600">Advanced algorithms find the best deals across multiple platforms instantly.</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">💰</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Best Price Guarantee</h3>
+                    <p class="text-gray-600">Compare prices from Amazon, eBay, and Walmart to ensure you get the best deal.</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">⚡</span>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Lightning Fast</h3>
+                    <p class="text-gray-600">Get results in seconds with our optimized search technology.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12 mt-20">
+        <div class="max-w-6xl mx-auto px-4 text-center">
+            <div class="flex items-center justify-center space-x-2 mb-4">
+                <span class="text-2xl font-extrabold text-blue-400">Arx</span>
+                <span class="text-lg text-gray-300 font-medium">BargainFinder AI</span>
+            </div>
+            <p class="text-gray-400 mb-4">Smart price comparison powered by AI</p>
+            <p class="text-sm text-gray-500">Built with Next.js, Tailwind CSS, and Supabase</p>
+        </div>
+    </footer>
+
+    <script>
+        // Mock data for demonstration
+        const mockProducts = {
+            'iphone': [
+                {
+                    title: 'Apple iPhone 15 Pro Max 256GB - Natural Titanium',
+                    price: 1199.99,
+                    seller: 'Amazon',
+                    rating: 4.8,
+                    badge: 'Best Deal',
+                    bestDeal: true
+                },
+                {
+                    title: 'iPhone 14 Plus 128GB Blue - Unlocked',
+                    price: 1249.00,
+                    seller: 'eBay',
+                    rating: 4.6,
+                    badge: 'Certified Refurbished',
+                    bestDeal: false
+                },
+                {
+                    title: 'Apple iPhone 15 Pro 512GB Black Titanium',
+                    price: 1299.99,
+                    seller: 'Walmart',
+                    rating: 4.7,
+                    badge: 'Free Shipping',
+                    bestDeal: false
+                }
+            ],
+            'headphones': [
+                {
+                    title: 'Sony WH-1000XM5 Wireless Noise Canceling Headphones',
+                    price: 349.99,
+                    seller: 'Amazon',
+                    rating: 4.9,
+                    badge: 'Best Deal',
+                    bestDeal: true
+                },
+                {
+                    title: 'Apple AirPods Pro (2nd Generation) with MagSafe Case',
+                    price: 379.00,
+                    seller: 'eBay',
+                    rating: 4.7,
+                    badge: 'Buy It Now',
+                    bestDeal: false
+                },
+                {
+                    title: 'Bose QuietComfort 45 Bluetooth Wireless Headphones',
+                    price: 389.99,
+                    seller: 'Walmart',
+                    rating: 4.8,
+                    badge: 'Rollback',
+                    bestDeal: false
+                }
+            ],
+            'laptop': [
+                {
+                    title: 'Dell XPS 13 Laptop - Intel i7, 16GB RAM, 512GB SSD',
+                    price: 1299.99,
+                    seller: 'Amazon',
+                    rating: 4.6,
+                    badge: 'Best Deal',
+                    bestDeal: true
+                },
+                {
+                    title: 'MacBook Air M2 13-inch 8GB 256GB - Space Gray',
+                    price: 1399.00,
+                    seller: 'eBay',
+                    rating: 4.8,
+                    badge: 'Certified',
+                    bestDeal: false
+                },
+                {
+                    title: 'HP Pavilion 15.6" Laptop AMD Ryzen 5 8GB 256GB',
+                    price: 1449.99,
+                    seller: 'Walmart',
+                    rating: 4.4,
+                    badge: 'Great Value',
+                    bestDeal: false
+                }
+            ],
+            'watch': [
+                {
+                    title: 'Apple Watch Series 9 GPS 45mm Midnight Aluminum',
+                    price: 399.99,
+                    seller: 'Amazon',
+                    rating: 4.7,
+                    badge: 'Best Deal',
+                    bestDeal: true
+                },
+                {
+                    title: 'Samsung Galaxy Watch6 Classic 47mm Black',
+                    price: 429.00,
+                    seller: 'eBay',
+                    rating: 4.5,
+                    badge: 'Free Returns',
+                    bestDeal: false
+                },
+                {
+                    title: 'Fitbit Versa 4 Health & Fitness Smartwatch',
+                    price: 449.99,
+                    seller: 'Walmart',
+                    rating: 4.3,
+                    badge: 'Free Pickup',
+                    bestDeal: false
+                }
+            ]
+        };
+
+        // Search functionality
+        function performSearch(query) {
+            if (!query) return;
+
+            // Show loading state
+            document.getElementById('featuresSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+
+            // Simulate API call delay
+            setTimeout(() => {
+                const searchTerm = query.toLowerCase();
+                let products = [];
+
+                // Find matching products
+                for (const [category, items] of Object.entries(mockProducts)) {
+                    if (searchTerm.includes(category)) {
+                        products = items;
+                        break;
+                    }
+                }
+
+                // If no specific category found, use generic results
+                if (products.length === 0) {
+                    products = generateGenericResults(query);
+                }
+
+                displayResults(query, products);
+            }, 2000);
+        }
+
+        function generateGenericResults(query) {
+            const brands = ['Samsung', 'Apple', 'Sony', 'LG', 'HP'];
+            const adjectives = ['Pro', 'Plus', 'Ultra', 'Max', 'Premium'];
+            
+            return [
+                {
+                    title: `${brands[0]} ${query} ${adjectives[0]} - Premium Model`,
+                    price: Math.round((Math.random() * 500 + 100) * 100) / 100,
+                    seller: 'Amazon',
+                    rating: 4.2 + Math.random() * 0.8,
+                    badge: 'Best Deal',
+                    bestDeal: true
+                },
+                {
+                    title: `${brands[1]} ${query} ${adjectives[1]} - Standard Edition`,
+                    price: Math.round((Math.random() * 400 + 150) * 100) / 100,
+                    seller: 'eBay',
+                    rating: 4.0 + Math.random() * 0.9,
+                    badge: 'Certified',
+                    bestDeal: false
+                },
+                {
+                    title: `${brands[2]} ${query} ${adjectives[2]} - Value Pack`,
+                    price: Math.round((Math.random() * 600 + 200) * 100) / 100,
+                    seller: 'Walmart',
+                    rating: 4.1 + Math.random() * 0.7,
+                    badge: 'Great Value',
+                    bestDeal: false
+                }
+            ];
+        }
+
+        function displayResults(query, products) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('resultsTitle').textContent = `Search Results for "${query}"`;
+
+            const resultsGrid = document.getElementById('resultsGrid');
+            resultsGrid.innerHTML = '';
+
+            products.forEach(product => {
+                const productCard = createProductCard(product);
+                resultsGrid.appendChild(productCard);
+            });
+        }
+
+        function createProductCard(product) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl p-6 shadow-lg card-hover relative';
+            
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <span class="text-sm font-medium text-gray-500">${product.seller}</span>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full ${
+                        product.bestDeal ? 'bg-green-100 text-green-800' : 
+                        product.badge === 'Prime' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                    }">
+                        ${product.badge}
+                    </span>
+                </div>
+                
+                <h3 class="font-semibold text-gray-900 mb-3 line-clamp-2">${product.title}</h3>
+                
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-2xl font-bold text-gray-900">
+                        $${product.price.toFixed(2)}
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-yellow-400">★</span>
+                        <span class="text-sm text-gray-600 ml-1">${product.rating.toFixed(1)}</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <button class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors mr-2">
+                        View Deal
+                    </button>
+                    <button class="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                        ♡
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Event listeners
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            const query = document.getElementById('searchInput').value.trim();
+            performSearch(query);
+        });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = document.getElementById('searchInput').value.trim();
+                performSearch(query);
+            }
+        });
+
+        // Popular search buttons
+        document.querySelectorAll('.popular-search').forEach(button => {
+            button.addEventListener('click', () => {
+                const query = button.textContent;
+                document.getElementById('searchInput').value = query;
+                performSearch(query);
+            });
+        });
+
+        // Auth button (placeholder)
+        document.getElementById('authBtn').addEventListener('click', () => {
+            alert('Authentication feature coming soon! This is a demo version.');
+        });
+    </script>
+</body>
+</html>
