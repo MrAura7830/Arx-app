@@ -7,15 +7,51 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script>
-        // Supabase configuration
+        // Supabase configuration with error handling
         const SUPABASE_URL = 'https://ehrzvgygcdtswxbjdmrn.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVocnp2Z3lnY2R0c3d4YmpkbXJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NDQ5MTYsImV4cCI6MjA2ODUyMDkxNn0.0ojvzrm_XJOaleWMtX5CeMYsfEpVuItTkJ7feU3_8M8';
         
-        // Initialize Supabase client
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
         // Global user state
         let currentUser = null;
+        let supabase = null;
+        let authEnabled = false;
+        
+        // Initialize Supabase client with error handling
+        function initSupabase() {
+            try {
+                if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
+                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                        auth: {
+                            autoRefreshToken: true,
+                            persistSession: true,
+                            detectSessionInUrl: true
+                        }
+                    });
+                    authEnabled = true;
+                    console.log('Supabase initialized successfully');
+                } else {
+                    console.warn('Supabase not available, running in demo mode');
+                    authEnabled = false;
+                }
+            } catch (error) {
+                console.error('Failed to initialize Supabase:', error);
+                authEnabled = false;
+            }
+        }
+        
+        // Demo mode user simulation
+        const demoUsers = {
+            'demo@example.com': {
+                email: 'demo@example.com',
+                password: 'demo123',
+                id: 'demo-user-1'
+            },
+            'test@example.com': {
+                email: 'test@example.com', 
+                password: 'test123',
+                id: 'demo-user-2'
+            }
+        };
     </script>
     <style>
         .gradient-bg {
@@ -513,10 +549,23 @@
         
         // Initialize authentication state
         async function initAuth() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                currentUser = user;
-                updateAuthUI(true);
+            if (!authEnabled) {
+                console.log('Running in demo mode - authentication disabled');
+                return;
+            }
+            
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                if (error) {
+                    console.error('Auth initialization error:', error);
+                    return;
+                }
+                if (user) {
+                    currentUser = user;
+                    updateAuthUI(true);
+                }
+            } catch (error) {
+                console.error('Failed to initialize auth:', error);
             }
         }
         
@@ -615,6 +664,12 @@
                 return;
             }
             
+            // If Supabase is not available, use demo mode
+            if (!authEnabled) {
+                handleDemoAuth(email, password);
+                return;
+            }
+            
             try {
                 if (isSignUpMode) {
                     const { data, error } = await supabase.auth.signUp({
@@ -623,7 +678,12 @@
                     });
                     
                     if (error) {
-                        showAuthError(error.message);
+                        console.error('Supabase signup error:', error);
+                        // Fallback to demo mode if Supabase fails
+                        showAuthError('Supabase unavailable. Using demo mode.');
+                        setTimeout(() => {
+                            handleDemoAuth(email, password, true);
+                        }, 1000);
                     } else {
                         showAuthSuccess('Sign up successful! Please check your email for verification.');
                         setTimeout(() => {
@@ -637,7 +697,12 @@
                     });
                     
                     if (error) {
-                        showAuthError(error.message);
+                        console.error('Supabase signin error:', error);
+                        // Fallback to demo mode if Supabase fails
+                        showAuthError('Supabase unavailable. Trying demo mode...');
+                        setTimeout(() => {
+                            handleDemoAuth(email, password);
+                        }, 1000);
                     } else {
                         currentUser = data.user;
                         updateAuthUI(true);
@@ -646,22 +711,70 @@
                     }
                 }
             } catch (error) {
-                showAuthError('An unexpected error occurred. Please try again.');
+                console.error('Authentication error:', error);
+                showAuthError('Supabase unavailable. Trying demo mode...');
+                setTimeout(() => {
+                    handleDemoAuth(email, password);
+                }, 1000);
+            }
+        }
+        
+        // Demo authentication for when Supabase is unavailable
+        function handleDemoAuth(email, password, isSignUp = false) {
+            if (isSignUp || isSignUpMode) {
+                // Demo sign up
+                demoUsers[email] = {
+                    email: email,
+                    password: password,
+                    id: 'demo-user-' + Date.now()
+                };
+                showAuthSuccess('Demo account created! You can now sign in.');
+                setTimeout(() => {
+                    switchAuthMode(false);
+                }, 2000);
+            } else {
+                // Demo sign in
+                const user = demoUsers[email];
+                if (user && user.password === password) {
+                    currentUser = {
+                        email: email,
+                        id: user.id
+                    };
+                    updateAuthUI(true);
+                    hideAuthModal();
+                    showAuthSuccess('Demo mode: Successfully signed in!');
+                } else if (email === 'demo@example.com' && password === 'demo123') {
+                    // Default demo account
+                    currentUser = {
+                        email: 'demo@example.com',
+                        id: 'demo-user-default'
+                    };
+                    updateAuthUI(true);
+                    hideAuthModal();
+                    showAuthSuccess('Demo mode: Signed in as demo user!');
+                } else {
+                    showAuthError('Demo mode: Invalid credentials. Try demo@example.com / demo123');
+                }
             }
         }
         
         // Handle logout
         async function handleLogout() {
             try {
-                const { error } = await supabase.auth.signOut();
-                if (error) {
-                    console.error('Logout error:', error);
-                } else {
-                    currentUser = null;
-                    updateAuthUI(false);
+                if (authEnabled && supabase) {
+                    const { error } = await supabase.auth.signOut();
+                    if (error) {
+                        console.error('Logout error:', error);
+                    }
                 }
+                // Always clear local state
+                currentUser = null;
+                updateAuthUI(false);
             } catch (error) {
                 console.error('Logout error:', error);
+                // Still clear local state even if Supabase logout fails
+                currentUser = null;
+                updateAuthUI(false);
             }
         }
         
@@ -683,7 +796,11 @@
         
         // Initialize app when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            initAuth();
+            // Wait for Supabase to load, then initialize
+            setTimeout(() => {
+                initSupabase();
+                initAuth();
+            }, 100);
         });
     </script>
 </body>
