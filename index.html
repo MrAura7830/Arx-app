@@ -366,7 +366,22 @@
                 return null;
             }
             
+            console.log('🔍 Calling Amazon API with query:', query);
+            
             try {
+                const requestBody = {
+                    query: query,
+                    country: 'US',
+                    sort_by: 'RELEVANCE',
+                    product_condition: 'ALL'
+                };
+                
+                console.log('📤 Amazon API Request:', {
+                    url: API_CONFIG.AMAZON_API,
+                    method: 'POST',
+                    body: requestBody
+                });
+                
                 const response = await fetch(API_CONFIG.AMAZON_API, {
                     method: 'POST',
                     headers: {
@@ -374,22 +389,22 @@
                         'X-RapidAPI-Key': API_CONFIG.RAPIDAPI_KEY,
                         'X-RapidAPI-Host': 'real-time-amazon-data.p.rapidapi.com'
                     },
-                    body: JSON.stringify({
-                        query: query,
-                        country: 'US',
-                        sort_by: 'RELEVANCE',
-                        product_condition: 'ALL'
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
+                console.log('📥 Amazon API Response Status:', response.status, response.statusText);
+                
                 if (!response.ok) {
-                    throw new Error(`Amazon API error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('❌ Amazon API Error Response:', errorText);
+                    throw new Error(`Amazon API error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
-                console.log('✅ Amazon API response:', data);
+                console.log('✅ Amazon API Full Response:', data);
                 
-                if (data && data.data && data.data.products) {
+                if (data && data.data && data.data.products && data.data.products.length > 0) {
+                    console.log('🎉 Amazon API returned', data.data.products.length, 'products');
                     return data.data.products.slice(0, 3).map(item => ({
                         title: item.product_title || `Amazon ${query}`,
                         price: parseFloat(item.product_price?.replace(/[^\d.]/g, '') || 0),
@@ -400,6 +415,9 @@
                         url: item.product_url || `https://www.amazon.com/s?k=${encodeURIComponent(query)}`,
                         image: item.product_photo
                     }));
+                } else {
+                    console.log('⚠️ Amazon API returned no products or unexpected format');
+                    return null;
                 }
             } catch (error) {
                 console.error('❌ Amazon API error:', error);
@@ -414,8 +432,13 @@
                 return null;
             }
             
+            console.log('🔍 Calling eBay API with query:', query);
+            
             try {
-                const response = await fetch(`${API_CONFIG.EBAY_API}?q=${encodeURIComponent(query)}&limit=3`, {
+                const apiUrl = `${API_CONFIG.EBAY_API}?q=${encodeURIComponent(query)}&limit=3`;
+                console.log('📤 eBay API Request URL:', apiUrl);
+                
+                const response = await fetch(apiUrl, {
                     method: 'GET',
                     headers: {
                         'X-RapidAPI-Key': API_CONFIG.RAPIDAPI_KEY,
@@ -423,14 +446,19 @@
                     }
                 });
                 
+                console.log('📥 eBay API Response Status:', response.status, response.statusText);
+                
                 if (!response.ok) {
-                    throw new Error(`eBay API error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('❌ eBay API Error Response:', errorText);
+                    throw new Error(`eBay API error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
-                console.log('✅ eBay API response:', data);
+                console.log('✅ eBay API Full Response:', data);
                 
-                if (data && data.products) {
+                if (data && data.products && data.products.length > 0) {
+                    console.log('🎉 eBay API returned', data.products.length, 'products');
                     return data.products.slice(0, 3).map(item => ({
                         title: item.title || `eBay ${query}`,
                         price: parseFloat(item.price?.current?.value || item.price?.value || 0),
@@ -441,6 +469,9 @@
                         url: item.url || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
                         image: item.image
                     }));
+                } else {
+                    console.log('⚠️ eBay API returned no products or unexpected format');
+                    return null;
                 }
             } catch (error) {
                 console.error('❌ eBay API error:', error);
@@ -455,9 +486,14 @@
                 return null;
             }
             
+            console.log('🔍 Calling Walmart API with query:', query);
+            
             try {
                 const walmartUrl = `https://www.walmart.com/search?q=${encodeURIComponent(query)}`;
-                const response = await fetch(`${API_CONFIG.WALMART_API}?url=${encodeURIComponent(walmartUrl)}`, {
+                const apiUrl = `${API_CONFIG.WALMART_API}?url=${encodeURIComponent(walmartUrl)}`;
+                console.log('📤 Walmart API Request URL:', apiUrl);
+                
+                const response = await fetch(apiUrl, {
                     method: 'GET',
                     headers: {
                         'X-RapidAPI-Key': API_CONFIG.RAPIDAPI_KEY,
@@ -465,14 +501,19 @@
                     }
                 });
                 
+                console.log('📥 Walmart API Response Status:', response.status, response.statusText);
+                
                 if (!response.ok) {
-                    throw new Error(`Walmart API error: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('❌ Walmart API Error Response:', errorText);
+                    throw new Error(`Walmart API error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
-                console.log('✅ Walmart API response:', data);
+                console.log('✅ Walmart API Full Response:', data);
                 
-                if (data && data.body && data.body.products) {
+                if (data && data.body && data.body.products && data.body.products.length > 0) {
+                    console.log('🎉 Walmart API returned', data.body.products.length, 'products');
                     return data.body.products.slice(0, 3).map(item => ({
                         title: item.title || `Walmart ${query}`,
                         price: parseFloat(item.price?.currentPrice?.replace(/[^\d.]/g, '') || 0),
@@ -483,6 +524,9 @@
                         url: item.link || `https://www.walmart.com/search?q=${encodeURIComponent(query)}`,
                         image: item.image
                     }));
+                } else {
+                    console.log('⚠️ Walmart API returned no products or unexpected format');
+                    return null;
                 }
             } catch (error) {
                 console.error('❌ Walmart API error:', error);
@@ -636,13 +680,17 @@
         // Initialize real data fetching on page load
         function initRealDataFetching() {
             console.log('🚀 Real product data fetching initialized!');
+            console.log('🔑 API Key Status:', hasRealApiKey ? 'VALID' : 'MISSING');
+            console.log('🔑 API Key Length:', API_CONFIG.RAPIDAPI_KEY.length);
+            console.log('🔑 API Key Preview:', API_CONFIG.RAPIDAPI_KEY.substring(0, 10) + '...');
             
             if (hasRealApiKey) {
                 console.log('✅ RapidAPI key detected - attempting real data fetch');
                 console.log('📊 Fetching live data from:');
                 console.log('   • Amazon Real-Time Data API');
-                console.log('   • eBay Search Result API');
-                console.log('   • Walmart Search API');
+                console.log('   • eBay Product Search API');
+                console.log('   • Walmart API');
+                console.log('⚠️ IMPORTANT: Make sure you have subscribed to these APIs on RapidAPI!');
                 showApiStatus('🔍 Real product search enabled!', true);
             } else {
                 console.log('⚠️  No RapidAPI key found - using mock data only');
