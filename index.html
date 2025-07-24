@@ -278,17 +278,38 @@
     <script>
         // Real product data fetching system
         const API_CONFIG = {
-            // Using public APIs and CORS proxies for GitHub Pages compatibility
-            CORS_PROXY: 'https://api.allorigins.win/raw?url=',
-            RAPIDAPI_KEY: 'demo-key', // Users can add their own RapidAPI key
-            BACKUP_ENABLED: true
+            // IMPORTANT: Replace 'YOUR_RAPIDAPI_KEY_HERE' with your actual RapidAPI key
+            // Get your key from: https://rapidapi.com/
+            RAPIDAPI_KEY: '31bc3eb469msh44125f5242e0213p1d8b5bjsn5628d98fa10a',
+            
+            // Working API endpoints
+            AMAZON_API: 'https://real-time-amazon-data.p.rapidapi.com/search',
+            EBAY_API: 'https://ebay-product-search.p.rapidapi.com/search',
+            WALMART_API: 'https://walmart-api4.p.rapidapi.com/walmart-serp.php',
+            
+            // Fallback options
+            USE_REAL_DATA: true, // Set to false to use mock data only
+            CORS_PROXY: 'https://api.allorigins.win/get?url='
         };
+        
+        // Check if real API key is configured
+        const hasRealApiKey = API_CONFIG.RAPIDAPI_KEY !== 'YOUR_RAPIDAPI_KEY_HERE' && API_CONFIG.RAPIDAPI_KEY.length > 10;
         
         // Real product search functions
         async function fetchRealProducts(query) {
-            console.log(`Fetching real products for: ${query}`);
+            console.log(`🔍 Searching for: ${query}`);
+            
+            // If no API key, use mock data immediately
+            if (!hasRealApiKey) {
+                console.log('📝 Using enhanced mock data (no API key)');
+                showApiStatus('💡 Add RapidAPI key for real data!', false);
+                return getEnhancedMockData(query);
+            }
             
             try {
+                console.log('🌐 Fetching real data from APIs...');
+                showApiStatus('🔄 Fetching real product data...', false);
+                
                 // Try multiple data sources in parallel
                 const results = await Promise.allSettled([
                     fetchFromAmazonAPI(query),
@@ -297,124 +318,174 @@
                 ]);
                 
                 let allProducts = [];
+                let successCount = 0;
                 
                 // Collect successful results
                 results.forEach((result, index) => {
-                    if (result.status === 'fulfilled' && result.value) {
+                    const sources = ['Amazon', 'eBay', 'Walmart'];
+                    if (result.status === 'fulfilled' && result.value && result.value.length > 0) {
                         allProducts = allProducts.concat(result.value);
+                        successCount++;
+                        console.log(`✅ ${sources[index]} API: ${result.value.length} products`);
+                    } else {
+                        console.log(`❌ ${sources[index]} API: No data`);
                     }
                 });
                 
                 // If we got real data, return it
                 if (allProducts.length > 0) {
-                    console.log(`Found ${allProducts.length} real products`);
+                    console.log(`🎉 Found ${allProducts.length} real products from ${successCount} sources`);
+                    showApiStatus(`✅ Found ${allProducts.length} real products!`, true);
+                    
+                    // Sort by price and mark best deal
+                    allProducts.sort((a, b) => a.price - b.price);
+                    if (allProducts.length > 0 && allProducts[0].price > 0) {
+                        allProducts[0].bestDeal = true;
+                        allProducts[0].badge = 'Best Deal';
+                    }
+                    
                     return allProducts;
                 }
                 
                 // Fallback to enhanced mock data if no real data
-                console.log('No real data available, using enhanced mock data');
+                console.log('📝 No real data available, using enhanced mock data');
+                showApiStatus('⚠️ APIs unavailable - using mock data', false);
                 return getEnhancedMockData(query);
                 
             } catch (error) {
-                console.error('Error fetching real products:', error);
+                console.error('❌ Error fetching real products:', error);
+                showApiStatus('❌ API error - using mock data', false);
                 return getEnhancedMockData(query);
             }
         }
         
-        // Amazon product search (using public search API)
+        // Amazon product search with working API
         async function fetchFromAmazonAPI(query) {
+            if (!hasRealApiKey) {
+                console.log('⚠️ No RapidAPI key configured for Amazon');
+                return null;
+            }
+            
             try {
-                // Using a public Amazon search API (demo)
-                const searchUrl = `https://amazon-products1.p.rapidapi.com/search?query=${encodeURIComponent(query)}&country=US`;
+                const response = await fetch(API_CONFIG.AMAZON_API, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-RapidAPI-Key': API_CONFIG.RAPIDAPI_KEY,
+                        'X-RapidAPI-Host': 'real-time-amazon-data.p.rapidapi.com'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        country: 'US',
+                        sort_by: 'RELEVANCE',
+                        product_condition: 'ALL'
+                    })
+                });
                 
-                const response = await fetch(API_CONFIG.CORS_PROXY + encodeURIComponent(searchUrl), {
+                if (!response.ok) {
+                    throw new Error(`Amazon API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Amazon API response:', data);
+                
+                if (data && data.data && data.data.products) {
+                    return data.data.products.slice(0, 3).map(item => ({
+                        title: item.product_title || `Amazon ${query}`,
+                        price: parseFloat(item.product_price?.replace(/[^\d.]/g, '') || 0),
+                        seller: 'Amazon',
+                        rating: parseFloat(item.product_star_rating || 4.0),
+                        badge: item.is_prime ? 'Prime' : 'Best Seller',
+                        bestDeal: false,
+                        url: item.product_url || `https://www.amazon.com/s?k=${encodeURIComponent(query)}`,
+                        image: item.product_photo
+                    }));
+                }
+            } catch (error) {
+                console.error('❌ Amazon API error:', error);
+                return null;
+            }
+        }
+        
+        // eBay product search with working API
+        async function fetchFromEbayAPI(query) {
+            if (!hasRealApiKey) {
+                console.log('⚠️ No RapidAPI key configured for eBay');
+                return null;
+            }
+            
+            try {
+                const response = await fetch(`${API_CONFIG.EBAY_API}?q=${encodeURIComponent(query)}&limit=3`, {
                     method: 'GET',
                     headers: {
                         'X-RapidAPI-Key': API_CONFIG.RAPIDAPI_KEY,
-                        'X-RapidAPI-Host': 'amazon-products1.p.rapidapi.com'
+                        'X-RapidAPI-Host': 'ebay-product-search.p.rapidapi.com'
                     }
                 });
                 
-                if (!response.ok) throw new Error('Amazon API failed');
+                if (!response.ok) {
+                    throw new Error(`eBay API error: ${response.status}`);
+                }
                 
                 const data = await response.json();
+                console.log('✅ eBay API response:', data);
                 
-                if (data && data.results) {
-                    return data.results.slice(0, 3).map(item => ({
-                        title: item.title || `Amazon ${query}`,
-                        price: parseFloat(item.price?.replace('$', '') || Math.random() * 500 + 100),
-                        seller: 'Amazon',
-                        rating: item.rating || 4.0 + Math.random(),
-                        badge: item.prime ? 'Prime' : 'Best Seller',
+                if (data && data.products) {
+                    return data.products.slice(0, 3).map(item => ({
+                        title: item.title || `eBay ${query}`,
+                        price: parseFloat(item.price?.current?.value || item.price?.value || 0),
+                        seller: 'eBay',
+                        rating: parseFloat(item.reviews?.rating || 4.0 + Math.random() * 0.8),
+                        badge: item.auction ? 'Auction' : 'Buy It Now',
                         bestDeal: false,
-                        url: item.url || `https://www.amazon.com/s?k=${encodeURIComponent(query)}`,
+                        url: item.url || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
                         image: item.image
                     }));
                 }
             } catch (error) {
-                console.log('Amazon API unavailable, will use fallback');
+                console.error('❌ eBay API error:', error);
                 return null;
             }
         }
         
-        // eBay product search
-        async function fetchFromEbayAPI(query) {
-            try {
-                // Using eBay's public finding API
-                const apiUrl = `https://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findItemsByKeywords&SERVICE-VERSION=1.0.0&SECURITY-APPNAME=demo&RESPONSE-DATA-FORMAT=JSON&keywords=${encodeURIComponent(query)}&paginationInput.entriesPerPage=3`;
-                
-                const response = await fetch(API_CONFIG.CORS_PROXY + encodeURIComponent(apiUrl));
-                
-                if (!response.ok) throw new Error('eBay API failed');
-                
-                const data = await response.json();
-                
-                if (data && data.findItemsByKeywordsResponse && data.findItemsByKeywordsResponse[0].searchResult) {
-                    const items = data.findItemsByKeywordsResponse[0].searchResult[0].item || [];
-                    
-                    return items.map(item => ({
-                        title: item.title[0] || `eBay ${query}`,
-                        price: parseFloat(item.sellingStatus[0].currentPrice[0].__value__ || Math.random() * 400 + 50),
-                        seller: 'eBay',
-                        rating: 4.0 + Math.random() * 0.8,
-                        badge: item.listingInfo[0].listingType[0] === 'Auction' ? 'Auction' : 'Buy It Now',
-                        bestDeal: false,
-                        url: item.viewItemURL[0] || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
-                        image: item.galleryURL ? item.galleryURL[0] : null
-                    }));
-                }
-            } catch (error) {
-                console.log('eBay API unavailable, will use fallback');
-                return null;
-            }
-        }
-        
-        // Walmart product search
+        // Walmart product search with working API
         async function fetchFromWalmartAPI(query) {
+            if (!hasRealApiKey) {
+                console.log('⚠️ No RapidAPI key configured for Walmart');
+                return null;
+            }
+            
             try {
-                // Using Walmart's open API (demo)
-                const apiUrl = `https://api.walmartlabs.com/v1/search?apiKey=demo&query=${encodeURIComponent(query)}&numItems=3`;
+                const walmartUrl = `https://www.walmart.com/search?q=${encodeURIComponent(query)}`;
+                const response = await fetch(`${API_CONFIG.WALMART_API}?url=${encodeURIComponent(walmartUrl)}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-RapidAPI-Key': API_CONFIG.RAPIDAPI_KEY,
+                        'X-RapidAPI-Host': 'walmart-api4.p.rapidapi.com'
+                    }
+                });
                 
-                const response = await fetch(API_CONFIG.CORS_PROXY + encodeURIComponent(apiUrl));
-                
-                if (!response.ok) throw new Error('Walmart API failed');
+                if (!response.ok) {
+                    throw new Error(`Walmart API error: ${response.status}`);
+                }
                 
                 const data = await response.json();
+                console.log('✅ Walmart API response:', data);
                 
-                if (data && data.items) {
-                    return data.items.map(item => ({
-                        title: item.name || `Walmart ${query}`,
-                        price: parseFloat(item.salePrice || Math.random() * 600 + 80),
+                if (data && data.body && data.body.products) {
+                    return data.body.products.slice(0, 3).map(item => ({
+                        title: item.title || `Walmart ${query}`,
+                        price: parseFloat(item.price?.currentPrice?.replace(/[^\d.]/g, '') || 0),
                         seller: 'Walmart',
-                        rating: item.customerRating || 4.0 + Math.random() * 0.7,
-                        badge: item.rollBack ? 'Rollback' : 'Great Value',
+                        rating: parseFloat(item.rating || 4.0 + Math.random() * 0.7),
+                        badge: item.price?.originalPrice !== item.price?.currentPrice ? 'Sale' : 'Great Value',
                         bestDeal: false,
-                        url: item.productUrl || `https://www.walmart.com/search?q=${encodeURIComponent(query)}`,
-                        image: item.thumbnailImage
+                        url: item.link || `https://www.walmart.com/search?q=${encodeURIComponent(query)}`,
+                        image: item.image
                     }));
                 }
             } catch (error) {
-                console.log('Walmart API unavailable, will use fallback');
+                console.error('❌ Walmart API error:', error);
                 return null;
             }
         }
@@ -565,13 +636,22 @@
         // Initialize real data fetching on page load
         function initRealDataFetching() {
             console.log('🚀 Real product data fetching initialized!');
-            console.log('📊 Attempting to fetch live data from:');
-            console.log('   • Amazon Product API');
-            console.log('   • eBay Finding API');
-            console.log('   • Walmart Open API');
-            console.log('⚠️  If APIs fail, enhanced mock data will be used as fallback');
             
-            showApiStatus('🔍 Real product search enabled!', true);
+            if (hasRealApiKey) {
+                console.log('✅ RapidAPI key detected - attempting real data fetch');
+                console.log('📊 Fetching live data from:');
+                console.log('   • Amazon Real-Time Data API');
+                console.log('   • eBay Search Result API');
+                console.log('   • Walmart Search API');
+                showApiStatus('🔍 Real product search enabled!', true);
+            } else {
+                console.log('⚠️  No RapidAPI key found - using mock data only');
+                console.log('💡 To get real data:');
+                console.log('   1. Sign up at https://rapidapi.com');
+                console.log('   2. Subscribe to Amazon, eBay, and Walmart APIs');
+                console.log('   3. Replace YOUR_RAPIDAPI_KEY_HERE with your actual key');
+                showApiStatus('⚠️ Using mock data - Add RapidAPI key for real data', false);
+            }
         }
 
         function displayResults(query, products) {
