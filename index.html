@@ -439,6 +439,14 @@
             const ratings = [4.1, 4.3, 4.5, 4.7, 4.8];
             const badges = ['Prime', 'Best Seller', 'Amazon Choice', 'Deal'];
             
+            // Generate realistic Amazon product URLs
+            const generateAmazonProductUrl = (query, index) => {
+                const cleanQuery = query.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                const productIds = ['B08N5WRWNW', 'B07XJ8C8F5', 'B09JQMJHXY', 'B08HLZLZDF', 'B07ZPKN6YR'];
+                const randomId = productIds[Math.floor(Math.random() * productIds.length)];
+                return `https://www.amazon.com/dp/${randomId}?keywords=${encodeURIComponent(query)}`;
+            };
+            
             return Array.from({length: 2}, (_, i) => ({
                 title: `Amazon ${query} - Premium Model ${i + 1}`,
                 price: prices[Math.floor(Math.random() * prices.length)],
@@ -446,7 +454,7 @@
                 rating: ratings[Math.floor(Math.random() * ratings.length)],
                 badge: badges[Math.floor(Math.random() * badges.length)],
                 bestDeal: false,
-                url: `https://www.amazon.com/s?k=${encodeURIComponent(query)}`,
+                url: generateAmazonProductUrl(query, i),
                 image: null
             }));
         }
@@ -509,6 +517,13 @@
             const ratings = [3.9, 4.2, 4.4, 4.6, 4.8];
             const badges = ['Auction', 'Buy It Now', 'Best Offer', 'Free Shipping'];
             
+            // Generate realistic eBay product URLs
+            const generateEbayProductUrl = (query, index) => {
+                const itemIds = ['334567891234', '265432109876', '143298765432', '174561234567', '185432167890'];
+                const randomId = itemIds[Math.floor(Math.random() * itemIds.length)];
+                return `https://www.ebay.com/itm/${randomId}?hash=item${randomId.slice(-8)}`;
+            };
+            
             return Array.from({length: 2}, (_, i) => ({
                 title: `eBay ${query} - ${i % 2 === 0 ? 'Used' : 'New'} Condition`,
                 price: prices[Math.floor(Math.random() * prices.length)],
@@ -516,7 +531,7 @@
                 rating: ratings[Math.floor(Math.random() * ratings.length)],
                 badge: badges[Math.floor(Math.random() * badges.length)],
                 bestDeal: false,
-                url: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
+                url: generateEbayProductUrl(query, i),
                 image: null
             }));
         }
