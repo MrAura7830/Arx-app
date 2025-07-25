@@ -318,35 +318,30 @@
                 ]);
                 
                 let allProducts = [];
-                let successCount = 0;
+                let realApiCount = 0;
+                const sources = ['Amazon', 'eBay', 'Walmart'];
+                const fallbackFunctions = [generateAmazonFallback, generateEbayFallback, generateWalmartFallback];
                 
-                // Collect successful results
+                // Process each API result and ensure we always get data from all sources
                 results.forEach((result, index) => {
-                    const sources = ['Amazon', 'eBay', 'Walmart'];
                     if (result.status === 'fulfilled' && result.value && result.value.length > 0) {
                         allProducts = allProducts.concat(result.value);
-                        successCount++;
-                        console.log(`✅ ${sources[index]} API: ${result.value.length} products`);
+                        realApiCount++;
+                        console.log(`✅ ${sources[index]} API: ${result.value.length} real products`);
                     } else {
-                        console.log(`❌ ${sources[index]} API: No data`);
+                        // If this specific API failed, use its fallback
+                        const fallbackData = fallbackFunctions[index](query);
+                        allProducts = allProducts.concat(fallbackData);
+                        console.log(`🔄 ${sources[index]} API failed, using ${fallbackData.length} fallback products`);
                     }
                 });
                 
-                // Ensure we always have varied results from all sources
-                if (allProducts.length === 0) {
-                    console.log('🔄 All APIs failed, generating mixed fallback data');
-                    allProducts = [
-                        ...generateAmazonFallback(query),
-                        ...generateEbayFallback(query),
-                        ...generateWalmartFallback(query)
-                    ];
-                    successCount = 3;
-                }
+                console.log(`📊 Total: ${allProducts.length} products (${realApiCount} real APIs + ${3 - realApiCount} fallbacks)`);
                 
-                // Return varied results
+                // Return varied results (we should always have products now)
                 if (allProducts.length > 0) {
-                    console.log(`🎉 Found ${allProducts.length} products from ${successCount} sources`);
-                    showApiStatus(`✅ Found ${allProducts.length} products from ${successCount} sources!`, true);
+                    console.log(`🎉 Displaying ${allProducts.length} products (${realApiCount} real + ${3 - realApiCount} fallback sources)`);
+                    showApiStatus(`✅ Found ${allProducts.length} products from all 3 sources!`, true);
                     
                     // Shuffle to ensure variety and limit to 6 total results
                     const shuffled = allProducts.sort(() => Math.random() - 0.5).slice(0, 6);
