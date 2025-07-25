@@ -502,6 +502,20 @@
                                 price = parseFloat(String(item.price).replace(/[^\d.]/g, ''));
                             }
                             
+                            // Validate and create reliable eBay URLs
+                            let productUrl;
+                            if (item.url && item.url.includes('ebay.com/itm/')) {
+                                // Use API URL if it's a valid eBay item URL
+                                productUrl = item.url;
+                                console.log('✅ Using eBay API URL:', productUrl);
+                            } else {
+                                // Create a reliable search URL with the product title for better results
+                                const searchTerm = item.title ? 
+                                    item.title.split(' ').slice(0, 4).join(' ') : query;
+                                productUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}&_sacat=0&LH_BIN=1`;
+                                console.log('🔄 Using eBay search URL:', productUrl);
+                            }
+                            
                             return {
                                 title: item.title || `eBay ${query}`,
                                 price: price || (19.99 + Math.random() * 100),
@@ -509,7 +523,7 @@
                                 rating: parseFloat(item.customerReviews?.count ? (4.0 + Math.random() * 0.8) : (4.0 + Math.random() * 0.8)),
                                 badge: item.shippingMessage ? 'Free Shipping' : 'Buy It Now',
                                 bestDeal: false,
-                                url: item.url || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
+                                url: productUrl,
                                 image: item.image
                             };
                         });
@@ -532,11 +546,16 @@
             const ratings = [3.9, 4.2, 4.4, 4.6, 4.8];
             const badges = ['Auction', 'Buy It Now', 'Best Offer', 'Free Shipping'];
             
-            // Generate realistic eBay product URLs
-            const generateEbayProductUrl = (query, index) => {
-                const itemIds = ['334567891234', '265432109876', '143298765432', '174561234567', '185432167890'];
-                const randomId = itemIds[Math.floor(Math.random() * itemIds.length)];
-                return `https://www.ebay.com/itm/${randomId}?hash=item${randomId.slice(-8)}`;
+            // Generate reliable eBay search URLs instead of fake product URLs
+            const generateEbaySearchUrl = (query, index) => {
+                const searchTerms = [
+                    `${query} new`,
+                    `${query} used`,
+                    `${query} refurbished`,
+                    `${query} original`
+                ];
+                const searchTerm = searchTerms[index % searchTerms.length];
+                return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}&_sacat=0&LH_BIN=1`;
             };
             
             return Array.from({length: 2}, (_, i) => ({
@@ -546,7 +565,7 @@
                 rating: ratings[Math.floor(Math.random() * ratings.length)],
                 badge: badges[Math.floor(Math.random() * badges.length)],
                 bestDeal: false,
-                url: generateEbayProductUrl(query, i),
+                url: generateEbaySearchUrl(query, i),
                 image: null
             }));
         }
