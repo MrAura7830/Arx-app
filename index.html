@@ -502,19 +502,11 @@
                                 price = parseFloat(String(item.price).replace(/[^\d.]/g, ''));
                             }
                             
-                            // Validate and create reliable eBay URLs
-                            let productUrl;
-                            if (item.url && item.url.includes('ebay.com/itm/')) {
-                                // Use API URL if it's a valid eBay item URL
-                                productUrl = item.url;
-                                console.log('✅ Using eBay API URL:', productUrl);
-                            } else {
-                                // Create a reliable search URL with the product title for better results
-                                const searchTerm = item.title ? 
-                                    item.title.split(' ').slice(0, 4).join(' ') : query;
-                                productUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}&_sacat=0&LH_BIN=1`;
-                                console.log('🔄 Using eBay search URL:', productUrl);
-                            }
+                            // Always use reliable eBay search URLs (no direct product links)
+                            const searchTerm = item.title ? 
+                                item.title.split(' ').slice(0, 5).join(' ') : query;
+                            const productUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}`;
+                            console.log('🔍 eBay search URL:', productUrl);
                             
                             return {
                                 title: item.title || `eBay ${query}`,
@@ -546,16 +538,14 @@
             const ratings = [3.9, 4.2, 4.4, 4.6, 4.8];
             const badges = ['Auction', 'Buy It Now', 'Best Offer', 'Free Shipping'];
             
-            // Generate reliable eBay search URLs instead of fake product URLs
+            // Generate simple eBay search URLs that always work
             const generateEbaySearchUrl = (query, index) => {
                 const searchTerms = [
                     `${query} new`,
-                    `${query} used`,
-                    `${query} refurbished`,
-                    `${query} original`
+                    `${query} used`
                 ];
                 const searchTerm = searchTerms[index % searchTerms.length];
-                return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}&_sacat=0&LH_BIN=1`;
+                return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}`;
             };
             
             return Array.from({length: 2}, (_, i) => ({
