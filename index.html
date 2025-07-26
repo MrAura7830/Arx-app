@@ -466,13 +466,14 @@
                 return generateEbayFallback(query);
             }
             
-            console.log('🔍 Calling eBay API with query:', query);
+            console.log('🔍 🔥 CALLING EBAY API with query:', query);
+            console.log('🔑 Using RapidAPI Key:', API_CONFIG.RAPIDAPI_KEY.substring(0, 10) + '...');
             
             try {
                 // Use the working api-for-ebay endpoint
                 const ebaySearchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
                 const apiUrl = `${API_CONFIG.EBAY_API}?url=${encodeURIComponent(ebaySearchUrl)}`;
-                console.log('📤 eBay API Request URL:', apiUrl);
+                console.log('📤 🔥 eBay API Request URL:', apiUrl);
                 
                 const response = await fetch(apiUrl, {
                     method: 'GET',
@@ -482,15 +483,15 @@
                     }
                 });
                 
-                console.log('📥 eBay API Response Status:', response.status, response.statusText);
+                console.log('📥 🔥 eBay API Response Status:', response.status, response.statusText);
                 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ eBay API Full Response:', data);
+                    console.log('✅ 🔥 eBay API Full Response:', data);
                     
                     // Check for the correct response structure
                     if (data && data.body && data.body.products && data.body.products.length > 0) {
-                        console.log('🎉 eBay API returned', data.body.products.length, 'products');
+                        console.log('🎉 🔥 eBay API returned', data.body.products.length, 'products');
                         return data.body.products.slice(0, 2).map(item => {
                             // Parse price from different possible formats
                             let price = 0;
@@ -502,11 +503,18 @@
                                 price = parseFloat(String(item.price).replace(/[^\d.]/g, ''));
                             }
                             
-                            // Always use reliable eBay search URLs (no direct product links)
-                            const searchTerm = item.title ? 
-                                item.title.split(' ').slice(0, 5).join(' ') : query;
-                            const productUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}`;
-                            console.log('🔍 eBay search URL:', productUrl);
+                            // Use the actual eBay product URL from API if available
+                            let productUrl;
+                            if (item.url && item.url.includes('ebay.com')) {
+                                productUrl = item.url;
+                                console.log('✅ 🔥 Using real eBay product URL:', productUrl);
+                            } else {
+                                // Fallback to search URL with product title
+                                const searchTerm = item.title ? 
+                                    item.title.split(' ').slice(0, 5).join(' ') : query;
+                                productUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchTerm)}`;
+                                console.log('🔄 🔥 Using eBay search URL:', productUrl);
+                            }
                             
                             return {
                                 title: item.title || `eBay ${query}`,
@@ -519,15 +527,20 @@
                                 image: item.image
                             };
                         });
+                    } else {
+                        console.log('⚠️ 🔥 eBay API returned unexpected structure:', data);
                     }
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ 🔥 eBay API Error Response:', errorText);
                 }
                 
-                console.log('⚠️ eBay API failed or returned no products, using fallback');
+                console.log('⚠️ 🔥 eBay API failed or returned no products, using fallback');
                 return generateEbayFallback(query);
                 
             } catch (error) {
-                console.error('❌ eBay API error:', error);
-                console.log('🔄 Using eBay fallback data');
+                console.error('❌ 🔥 eBay API error:', error);
+                console.log('🔄 🔥 Using eBay fallback data');
                 return generateEbayFallback(query);
             }
         }
